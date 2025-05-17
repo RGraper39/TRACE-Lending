@@ -2,30 +2,39 @@ import React, { useEffect, useState, useRef } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
 
-// --- Хук для анимации появления элементов при скролле (анимирует каждый раз) ---
-function useScrollRevealArray(length, offsetBase = 100, offsetStep = 40) {
-  // Возвращает массив [ref, visible] для каждого элемента
-  return Array.from({ length }).map((_, idx) => {
-    const ref = useRef();
-    const [visible, setVisible] = useState(false);
+// --- Компонент для анимации появления элементов ---
+function ScrollReveal({ offset = 100, delay = 0, children }) {
+  const ref = useRef();
+  const [visible, setVisible] = useState(false);
 
-    useEffect(() => {
-      function onScroll() {
-        if (!ref.current) return;
-        const rect = ref.current.getBoundingClientRect();
-        if (rect.top < window.innerHeight - (offsetBase + idx * offsetStep) && rect.bottom > 0) {
-          setVisible(true);
-        } else {
-          setVisible(false);
-        }
+  useEffect(() => {
+    function onScroll() {
+      if (!ref.current) return;
+      const rect = ref.current.getBoundingClientRect();
+      if (rect.top < window.innerHeight - offset && rect.bottom > 0) {
+        setVisible(true);
+      } else {
+        setVisible(false);
       }
-      window.addEventListener("scroll", onScroll);
-      onScroll();
-      return () => window.removeEventListener("scroll", onScroll);
-    }, [offsetBase, offsetStep, idx]);
+    }
+    window.addEventListener("scroll", onScroll);
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [offset]);
 
-    return [ref, visible];
-  });
+  return (
+    <div
+      ref={ref}
+      style={{
+        transform: visible ? "translateY(0)" : "translateY(60px)",
+        opacity: visible ? 1 : 0,
+        transition: "all 0.7s",
+        transitionDelay: `${delay}s`
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 // --- Popup helpers ---
@@ -136,7 +145,6 @@ const translations = {
     copyright: "Conscious travel. Personal paths.",
   },
   ru: {
-    // ...русские переводы (оставьте как есть из вашего файла)...
     popupWelcomeTitle: "Где вы хотите оставить свой СЛЕД?",
     popupWelcomeDesc: "Найдите своё место силы. Начните путешествие с вдохновения.",
     popupWelcomeBtn: "Начать исследование",
@@ -244,12 +252,10 @@ export default function App() {
   const [showMapModal, setShowMapModal] = useState(false);
   const [mapModalData, setMapModalData] = useState(null);
 
-  // --- Welcome popup: show once, 12s after first visit ---
   useOncePerSession("trace_welcome_popup", () => {
     setTimeout(() => setShowWelcome(true), 12000);
   });
 
-  // --- Exit-intent popup: desktop only, once per session ---
   useEffect(() => {
     function onMouseLeave(e) {
       if (e.clientY < 40 && window.innerWidth > 768 && !sessionStorage.getItem("trace_exit_popup")) {
@@ -261,7 +267,6 @@ export default function App() {
     return () => window.removeEventListener("mouseout", onMouseLeave);
   }, []);
 
-  // --- Sticky popup: show at 75% scroll, once per session ---
   useEffect(() => {
     function onScroll() {
       if (showSticky) return;
@@ -276,13 +281,11 @@ export default function App() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [showSticky]);
 
-  // --- Map click demo (пример: клик по "location" элементу) ---
   function handleMapClick(place) {
     setMapModalData(place);
     setShowMapModal(true);
   }
 
-  // --- Для анимации элементов внутри блоков ---
   const problems = [
     { title: t.notSure, desc: t.notSureDesc },
     { title: t.planningRoutes, desc: t.planningRoutesDesc },
@@ -313,15 +316,6 @@ export default function App() {
   ];
   const testimonials = t.testimonialsList;
 
-  // Используем кастомный хук для массивов анимаций
-  const problemsAnim = useScrollRevealArray(problems.length);
-  const whatIsTraceAnim = useScrollRevealArray(whatIsTrace.length);
-  const howWorksAnim = useScrollRevealArray(howWorks.length);
-  const useCasesAnim = useScrollRevealArray(useCases.length);
-  const featuresAnim = useScrollRevealArray(features.length);
-  const testimonialsAnim = useScrollRevealArray(testimonials.length);
-
-  // --- Email form state for popups ---
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
 
@@ -330,10 +324,8 @@ export default function App() {
     setEmailSent(true);
     setTimeout(() => setShowExit(false), 1200);
     setTimeout(() => setShowSticky(false), 1200);
-    // Здесь можно добавить отправку email на сервер
   }
 
-  // --- Fade/scale animation style for popups ---
   const popupAnim = "fixed inset-0 flex items-center justify-center z-[1000] bg-black/40 transition-all";
   const popupBox = "bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center scale-100 opacity-100 transition-all";
 
@@ -341,14 +333,12 @@ export default function App() {
     AOS.init({ once: true, duration: 800 });
   }, []);
 
-  // --- Для email placeholder в зависимости от попапа ---
   const emailPlaceholder = t.popupEmailPlaceholder || "Your email";
   const emailPlaceholderShort = t.popupEmailPlaceholderShort || "Email";
 
   return (
     <div className="min-h-screen bg-white text-black font-roboto relative overflow-x-hidden">
       {/* --- POPUPS --- */}
-      {/* Welcome popup */}
       {showWelcome && (
         <div className={popupAnim} style={{ animation: "fadeIn .3s" }}>
           <div className={popupBox + " relative"}>
@@ -364,7 +354,6 @@ export default function App() {
           </div>
         </div>
       )}
-      {/* Exit-intent popup */}
       {showExit && (
         <div className={popupAnim} style={{ animation: "fadeIn .3s" }}>
           <div className={popupBox + " relative"}>
@@ -394,7 +383,6 @@ export default function App() {
           </div>
         </div>
       )}
-      {/* Sticky popup */}
       {showSticky && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000]">
           <div className="bg-black text-white px-6 py-4 rounded-full shadow-lg flex items-center gap-4 animate-fadeInUp">
@@ -423,7 +411,6 @@ export default function App() {
           </div>
         </div>
       )}
-      {/* Map click modal */}
       {showMapModal && mapModalData && (
         <div className={popupAnim} style={{ animation: "fadeIn .3s" }}>
           <div className={popupBox + " relative"}>
@@ -440,7 +427,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Language Switcher */}
       <div className="absolute top-4 right-4 z-50">
         <button
           className={`px-3 py-1 rounded-l ${lang === "en" ? "bg-black text-white" : "bg-gray-200 text-black"}`}
@@ -456,7 +442,6 @@ export default function App() {
         </button>
       </div>
 
-      {/* First block background */}
       <div className="absolute top-0 left-0 w-full h-[700px] z-0">
         <img
           src="/fon-1.jpg"
@@ -465,7 +450,6 @@ export default function App() {
           style={{ backgroundAttachment: "fixed" }}
         />
       </div>
-      {/* Second block background */}
       <div className="absolute top-[700px] left-0 w-full h-[600px] z-0">
         <img
           src="/fon-2.jpg"
@@ -474,7 +458,6 @@ export default function App() {
           style={{ backgroundAttachment: "fixed" }}
         />
       </div>
-      {/* Divider between backgrounds */}
       <div
         className="absolute top-[700px] left-0 w-full h-10 z-10 pointer-events-none"
         style={{
@@ -520,7 +503,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* Problems block с анимацией для каждого элемента */}
+        {/* Problems block */}
         <section className="bg-[#F9FAFB] text-black py-16 px-6 md:px-12">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-6">
@@ -530,24 +513,14 @@ export default function App() {
               {t.soundsFamiliarDesc}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {problems.map((item, idx) => {
-                const [ref, visible] = problemsAnim[idx];
-                return (
-                  <div
-                    key={idx}
-                    ref={ref}
-                    className="bg-white shadow-lg rounded-2xl p-6 transition-all duration-700"
-                    style={{
-                      transform: visible ? "translateY(0)" : "translateY(60px)",
-                      opacity: visible ? 1 : 0,
-                      transitionDelay: `${idx * 0.12}s`
-                    }}
-                  >
+              {problems.map((item, idx) => (
+                <ScrollReveal key={idx} offset={100 + idx * 40} delay={idx * 0.12}>
+                  <div className="bg-white shadow-lg rounded-2xl p-6">
                     <h3 className="text-xl font-semibold mb-2 text-black">{item.title}</h3>
                     <p>{item.desc}</p>
                   </div>
-                );
-              })}
+                </ScrollReveal>
+              ))}
             </div>
           </div>
         </section>
@@ -560,24 +533,14 @@ export default function App() {
               {t.whatIsTraceDesc}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-              {whatIsTrace.map((item, idx) => {
-                const [ref, visible] = whatIsTraceAnim[idx];
-                return (
-                  <div
-                    key={idx}
-                    ref={ref}
-                    className="bg-white rounded-2xl p-6 shadow-md transition-all duration-700"
-                    style={{
-                      transform: visible ? "translateY(0)" : "translateY(60px)",
-                      opacity: visible ? 1 : 0,
-                      transitionDelay: `${idx * 0.12}s`
-                    }}
-                  >
+              {whatIsTrace.map((item, idx) => (
+                <ScrollReveal key={idx} offset={100 + idx * 40} delay={idx * 0.12}>
+                  <div className="bg-white rounded-2xl p-6 shadow-md">
                     <h3 className="text-xl font-semibold mb-2 text-black">{item.title}</h3>
                     <p>{item.desc}</p>
                   </div>
-                );
-              })}
+                </ScrollReveal>
+              ))}
             </div>
             <div className="mt-16">
               <a href="#download" className="inline-block bg-[#ffba01] hover:bg-[#ffb000] text-white font-semibold py-3 px-8 rounded-full shadow transition">
@@ -587,7 +550,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* How does it work block */}
+        {/* How does it work */}
         <section className="bg-[#F0F4F8] text-black py-20 px-6 md:px-12">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-6">{t.howWorks}</h2>
@@ -595,25 +558,15 @@ export default function App() {
               {t.howWorksDesc}
             </p>
             <div className="grid md:grid-cols-4 gap-8">
-              {howWorks.map((item, idx) => {
-                const [ref, visible] = howWorksAnim[idx];
-                return (
-                  <div
-                    key={idx}
-                    ref={ref}
-                    className="bg-white p-6 rounded-2xl shadow-md flex flex-col items-center text-center transition-all duration-700"
-                    style={{
-                      transform: visible ? "translateY(0)" : "translateY(60px)",
-                      opacity: visible ? 1 : 0,
-                      transitionDelay: `${idx * 0.12}s`
-                    }}
-                  >
+              {howWorks.map((item, idx) => (
+                <ScrollReveal key={idx} offset={100 + idx * 40} delay={idx * 0.12}>
+                  <div className="bg-white p-6 rounded-2xl shadow-md flex flex-col items-center text-center">
                     <div className="text-4xl mb-4">{item.icon}</div>
                     <h3 className="text-xl font-semibold mb-2">{item.title}</h3>
                     <p>{item.desc}</p>
                   </div>
-                );
-              })}
+                </ScrollReveal>
+              ))}
             </div>
             <div className="text-center mt-16">
               <a
@@ -626,7 +579,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* Use Cases block */}
+        {/* Use Cases */}
         <section className="bg-white text-black py-20 px-6 md:px-12">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-6">{t.useCases}</h2>
@@ -634,32 +587,22 @@ export default function App() {
               {t.useCasesDesc}
             </p>
             <div className="grid md:grid-cols-3 gap-8">
-              {useCases.map((item, idx) => {
-                const [ref, visible] = useCasesAnim[idx];
-                return (
-                  <div
-                    key={idx}
-                    ref={ref}
-                    className="bg-[#F9FAFB] p-6 rounded-2xl shadow-sm hover:shadow-md transition-all duration-700"
-                    style={{
-                      transform: visible ? "translateY(0)" : "translateY(60px)",
-                      opacity: visible ? 1 : 0,
-                      transitionDelay: `${idx * 0.12}s`
-                    }}
-                  >
+              {useCases.map((item, idx) => (
+                <ScrollReveal key={idx} offset={100 + idx * 40} delay={idx * 0.12}>
+                  <div className="bg-[#F9FAFB] p-6 rounded-2xl shadow-sm hover:shadow-md">
                     <h3 className="text-xl font-semibold mb-2">{item.title}</h3>
                     <p className="mb-4">{item.desc}</p>
                     <a href="#download" className="inline-block text-sm font-semibold text-white bg-[#ffba01] px-5 py-2 rounded-full hover:opacity-90 transition">
                       {item.btn}
                     </a>
                   </div>
-                );
-              })}
+                </ScrollReveal>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Why TRACE block */}
+        {/* Why TRACE */}
         <section className="bg-gray-50 text-black py-20 px-6 md:px-12">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-6">{t.whyTrace}</h2>
@@ -667,49 +610,29 @@ export default function App() {
               {t.whyTraceDesc}
             </p>
             <div className="grid md:grid-cols-2 gap-10">
-              {features.map((item, idx) => {
-                const [ref, visible] = featuresAnim[idx];
-                return (
-                  <div
-                    key={idx}
-                    ref={ref}
-                    className="flex items-start space-x-4 transition-all duration-700"
-                    style={{
-                      transform: visible ? "translateY(0)" : "translateY(60px)",
-                      opacity: visible ? 1 : 0,
-                      transitionDelay: `${idx * 0.12}s`
-                    }}
-                  >
+              {features.map((item, idx) => (
+                <ScrollReveal key={idx} offset={100 + idx * 40} delay={idx * 0.12}>
+                  <div className="flex items-start space-x-4">
                     <div className="text-[#ffba01] text-3xl">{item.icon}</div>
                     <div>
                       <h3 className="text-xl font-semibold mb-1">{item.title}</h3>
                       <p>{item.desc}</p>
                     </div>
                   </div>
-                );
-              })}
+                </ScrollReveal>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Testimonials block */}
+        {/* Testimonials */}
         <section className="bg-white text-black py-20 px-6 md:px-12">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">{t.testimonials}</h2>
             <div className="grid md:grid-cols-3 gap-8">
-              {testimonials.map((item, idx) => {
-                const [ref, visible] = testimonialsAnim[idx];
-                return (
-                  <div
-                    key={idx}
-                    ref={ref}
-                    className="bg-gray-50 rounded-2xl p-6 shadow-md transition-all duration-700"
-                    style={{
-                      transform: visible ? "translateY(0)" : "translateY(60px)",
-                      opacity: visible ? 1 : 0,
-                      transitionDelay: `${idx * 0.12}s`
-                    }}
-                  >
+              {testimonials.map((item, idx) => (
+                <ScrollReveal key={idx} offset={100 + idx * 40} delay={idx * 0.12}>
+                  <div className="bg-gray-50 rounded-2xl p-6 shadow-md">
                     <p className="text-gray-700 text-lg italic mb-4">
                       “{item.text}”
                     </p>
@@ -721,13 +644,13 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-                );
-              })}
+                </ScrollReveal>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Final CTA block */}
+        {/* Final CTA */}
         <section className="bg-[#ffba01] text-black py-20 px-6 md:px-12 text-center">
           <div className="max-w-3xl mx-auto">
             <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
